@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CharacterAvatar } from "@/components/character-avatar";
 import { buildStoryPrompt } from "@/lib/prompt";
 import type { Character } from "@/lib/types";
 import { parseTags } from "@/lib/types";
@@ -24,12 +25,12 @@ export function CharacterCard({ character }: { character: Character }) {
       <Card className="h-full transition-all hover:shadow-md hover:-translate-y-0.5">
         <CardContent className="flex flex-col gap-3 p-5">
           <div className="flex items-start gap-3">
-            <div
-              className="flex size-12 shrink-0 items-center justify-center rounded-full text-2xl"
-              style={{ backgroundColor: `${character.avatar_color}22` }}
-            >
-              {character.avatar_emoji || "🙂"}
-            </div>
+            <CharacterAvatar
+              config={character.avatar_config}
+              emoji={character.avatar_emoji}
+              color={character.avatar_color}
+              size={48}
+            />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <span className="truncate font-semibold">{character.name}</span>

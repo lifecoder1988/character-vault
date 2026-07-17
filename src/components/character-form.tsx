@@ -12,6 +12,19 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { AvatarSvg } from "@/components/character-avatar";
+import type { AvatarConfig } from "@/lib/avatar";
+import {
+  BEARD_OPTIONS,
+  BODY_OPTIONS,
+  DEFAULT_AVATAR,
+  FACE_OPTIONS,
+  HAIR_COLOR_OPTIONS,
+  HAIR_OPTIONS,
+  SKIN_OPTIONS,
+  parseAvatarConfig,
+  randomAvatarConfig,
+} from "@/lib/avatar";
 import type { Character, CharacterInput } from "@/lib/types";
 import { parseTags } from "@/lib/types";
 import {
@@ -115,6 +128,91 @@ function ChipGroup({
   );
 }
 
+/** 图片式选项网格：每个选项渲染一个应用了该选项的迷你小人 */
+function AvatarOptionGrid({
+  label,
+  options,
+  current,
+  clothColor,
+  selectedId,
+  onSelect,
+  patch,
+}: {
+  label: string;
+  options: { id: string; label: string }[];
+  current: AvatarConfig;
+  clothColor: string;
+  selectedId: string;
+  onSelect: (id: string) => void;
+  patch: (id: string) => Partial<AvatarConfig>;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <Label>{label}</Label>
+      <div className="flex flex-wrap gap-2">
+        {options.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            aria-label={option.label}
+            aria-pressed={selectedId === option.id}
+            title={option.label}
+            onClick={() => onSelect(option.id)}
+            className={cn(
+              "flex flex-col items-center gap-0.5 rounded-lg border p-1.5 transition-colors hover:bg-accent",
+              selectedId === option.id
+                ? "border-primary bg-accent ring-1 ring-primary"
+                : "border-input"
+            )}
+          >
+            <AvatarSvg
+              config={{ ...current, ...patch(option.id) }}
+              clothColor={clothColor}
+              size={44}
+            />
+            <span className="text-[10px] text-muted-foreground">{option.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SwatchGroup({
+  label,
+  options,
+  selectedId,
+  onSelect,
+}: {
+  label: string;
+  options: { id: string; label: string }[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <Label>{label}</Label>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {options.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            aria-label={option.label}
+            aria-pressed={selectedId === option.id}
+            title={option.label}
+            className={cn(
+              "size-7 rounded-full border border-black/10 transition-transform hover:scale-110",
+              selectedId === option.id && "ring-2 ring-ring ring-offset-2"
+            )}
+            style={{ backgroundColor: option.id }}
+            onClick={() => onSelect(option.id)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function PreviewSection({ title, text }: { title: string; text: string }) {
   if (!text) return null;
   return (
@@ -157,7 +255,13 @@ export function CharacterForm({ character }: { character?: Character }) {
   );
   const [avatarEmoji, setAvatarEmoji] = useState(character?.avatar_emoji || "🧒");
   const [avatarColor, setAvatarColor] = useState(character?.avatar_color || "#6366f1");
+  const [avatar, setAvatar] = useState<AvatarConfig>(
+    () => parseAvatarConfig(character?.avatar_config ?? "") ?? DEFAULT_AVATAR
+  );
   const [saving, setSaving] = useState(false);
+
+  const patchAvatar = (patch: Partial<AvatarConfig>) =>
+    setAvatar((a) => ({ ...a, ...patch }));
 
   const composed = useMemo(
     () => ({
@@ -174,6 +278,7 @@ export function CharacterForm({ character }: { character?: Character }) {
     setName(randomName());
     setAvatarEmoji(randomPick(EMOJI_PRESETS));
     setAvatarColor(randomPick(COLOR_PRESETS));
+    setAvatar(randomAvatarConfig());
     setRole([randomPick(ROLE_OPTIONS)]);
     setGender([randomPick(GENDER_OPTIONS)]);
     setAge([randomPick(AGE_OPTIONS)]);
@@ -207,6 +312,7 @@ export function CharacterForm({ character }: { character?: Character }) {
       tags: composed.tags.join(", "),
       avatar_emoji: avatarEmoji,
       avatar_color: avatarColor,
+      avatar_config: JSON.stringify(avatar),
     };
     setSaving(true);
     try {
@@ -289,42 +395,60 @@ export function CharacterForm({ character }: { character?: Character }) {
             </TabsList>
 
             <TabsContent value="look" className="mt-4 flex flex-col gap-5">
-              <div className="flex flex-col gap-2">
-                <Label>头像</Label>
-                <div className="flex flex-wrap gap-1">
-                  {EMOJI_PRESETS.map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      className={cn(
-                        "flex size-9 items-center justify-center rounded-md text-xl hover:bg-accent",
-                        avatarEmoji === emoji && "bg-accent ring-1 ring-ring"
-                      )}
-                      onClick={() => setAvatarEmoji(emoji)}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label>主题色</Label>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {COLOR_PRESETS.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      aria-label={`选择颜色 ${color}`}
-                      className={cn(
-                        "size-7 rounded-full border border-black/10 transition-transform hover:scale-110",
-                        avatarColor === color && "ring-2 ring-ring ring-offset-2"
-                      )}
-                      style={{ backgroundColor: color }}
-                      onClick={() => setAvatarColor(color)}
-                    />
-                  ))}
-                </div>
-              </div>
+              <AvatarOptionGrid
+                label="脸型"
+                options={FACE_OPTIONS}
+                current={avatar}
+                clothColor={avatarColor}
+                selectedId={avatar.face}
+                onSelect={(id) => patchAvatar({ face: id })}
+                patch={(id) => ({ face: id })}
+              />
+              <SwatchGroup
+                label="肤色"
+                options={SKIN_OPTIONS}
+                selectedId={avatar.skin}
+                onSelect={(id) => patchAvatar({ skin: id })}
+              />
+              <AvatarOptionGrid
+                label="发型"
+                options={HAIR_OPTIONS}
+                current={avatar}
+                clothColor={avatarColor}
+                selectedId={avatar.hair}
+                onSelect={(id) => patchAvatar({ hair: id })}
+                patch={(id) => ({ hair: id })}
+              />
+              <SwatchGroup
+                label="发色"
+                options={HAIR_COLOR_OPTIONS}
+                selectedId={avatar.hairColor}
+                onSelect={(id) => patchAvatar({ hairColor: id })}
+              />
+              <AvatarOptionGrid
+                label="胡子"
+                options={BEARD_OPTIONS}
+                current={avatar}
+                clothColor={avatarColor}
+                selectedId={avatar.beard}
+                onSelect={(id) => patchAvatar({ beard: id })}
+                patch={(id) => ({ beard: id })}
+              />
+              <AvatarOptionGrid
+                label="身材"
+                options={BODY_OPTIONS}
+                current={avatar}
+                clothColor={avatarColor}
+                selectedId={avatar.body}
+                onSelect={(id) => patchAvatar({ body: id })}
+                patch={(id) => ({ body: id })}
+              />
+              <SwatchGroup
+                label="服装 / 主题色"
+                options={COLOR_PRESETS.map((c) => ({ id: c, label: `颜色 ${c}` }))}
+                selectedId={avatarColor}
+                onSelect={setAvatarColor}
+              />
               <div className="flex flex-col gap-2">
                 <ChipGroup
                   label="外貌特征（可多选）"
@@ -430,15 +554,16 @@ export function CharacterForm({ character }: { character?: Character }) {
             <CardContent className="flex flex-col gap-4 p-5">
               <div className="flex flex-col items-center gap-2 text-center">
                 <div
-                  className="flex size-24 items-center justify-center rounded-full text-5xl ring-4"
+                  className="flex size-28 items-center justify-center overflow-hidden rounded-full ring-4"
                   style={
                     {
                       backgroundColor: `${avatarColor}22`,
                       "--tw-ring-color": `${avatarColor}55`,
                     } as React.CSSProperties
                   }
+                  data-testid="preview-avatar"
                 >
-                  {avatarEmoji}
+                  <AvatarSvg config={avatar} clothColor={avatarColor} size={104} />
                 </div>
                 <p className="text-lg font-semibold" data-testid="preview-name">
                   {name.trim() || "未命名人物"}

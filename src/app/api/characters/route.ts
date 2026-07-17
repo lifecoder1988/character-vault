@@ -38,8 +38,8 @@ export async function POST(request: Request) {
   const info = await db
     .prepare(
       `INSERT INTO characters
-       (name, role, gender, age, appearance, personality, voice, backstory, appearance_prompt, tags, avatar_emoji, avatar_color)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (name, role, gender, age, appearance, personality, voice, backstory, appearance_prompt, tags, avatar_emoji, avatar_color, avatar_config)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       name,
@@ -53,7 +53,8 @@ export async function POST(request: Request) {
       body.appearance_prompt ?? "",
       body.tags ?? "",
       body.avatar_emoji || "🙂",
-      body.avatar_color || "#6366f1"
+      body.avatar_color || "#6366f1",
+      body.avatar_config ?? ""
     )
     .run();
 

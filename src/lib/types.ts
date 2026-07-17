@@ -12,6 +12,7 @@ export interface Character {
   tags: string;
   avatar_emoji: string;
   avatar_color: string;
+  avatar_config: string;
   created_at: string;
   updated_at: string;
 }

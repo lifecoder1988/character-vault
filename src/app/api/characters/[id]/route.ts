@@ -40,7 +40,7 @@ export async function PUT(request: Request, { params }: Params) {
       `UPDATE characters SET
        name = ?, role = ?, gender = ?, age = ?, appearance = ?, personality = ?,
        voice = ?, backstory = ?, appearance_prompt = ?, tags = ?,
-       avatar_emoji = ?, avatar_color = ?, updated_at = datetime('now')
+       avatar_emoji = ?, avatar_color = ?, avatar_config = ?, updated_at = datetime('now')
        WHERE id = ?`
     )
     .bind(
@@ -56,6 +56,7 @@ export async function PUT(request: Request, { params }: Params) {
       body.tags ?? "",
       body.avatar_emoji || "🙂",
       body.avatar_color || "#6366f1",
+      body.avatar_config ?? "",
       id
     )
     .run();

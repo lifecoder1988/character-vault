@@ -1,3 +1,4 @@
+import { describeAvatar, parseAvatarConfig } from "./avatar";
 import type { Character } from "./types";
 import { parseTags } from "./types";
 
@@ -10,7 +11,11 @@ export function buildStoryPrompt(c: Character): string {
   field("定位", c.role);
   field("性别", c.gender);
   field("年龄", c.age);
-  field("外貌", c.appearance);
+  const avatar = parseAvatarConfig(c.avatar_config);
+  const look = [avatar ? describeAvatar(avatar) : "", c.appearance]
+    .filter(Boolean)
+    .join("、");
+  field("外貌", look);
   field("性格", c.personality);
   field("说话风格", c.voice);
   field("背景故事", c.backstory);

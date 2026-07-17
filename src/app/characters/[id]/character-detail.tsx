@@ -19,7 +19,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { CharacterAvatar } from "@/components/character-avatar";
 import { buildStoryPrompt } from "@/lib/prompt";
+import { describeAvatar, parseAvatarConfig } from "@/lib/avatar";
 import type { Character } from "@/lib/types";
 import { parseTags } from "@/lib/types";
 
@@ -99,12 +101,12 @@ export default function CharacterDetail() {
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div
-            className="flex size-16 shrink-0 items-center justify-center rounded-full text-3xl"
-            style={{ backgroundColor: `${character.avatar_color}22` }}
-          >
-            {character.avatar_emoji || "🙂"}
-          </div>
+          <CharacterAvatar
+            config={character.avatar_config}
+            emoji={character.avatar_emoji}
+            color={character.avatar_color}
+            size={72}
+          />
           <div>
             <h1 className="text-2xl font-bold tracking-tight" data-testid="character-name">
               {character.name}
@@ -153,7 +155,15 @@ export default function CharacterDetail() {
 
       <Card>
         <CardContent className="flex flex-col gap-5 p-6">
-          <Section title="外貌描述" content={character.appearance} />
+          <Section
+            title="外貌描述"
+            content={(() => {
+              const cfg = parseAvatarConfig(character.avatar_config);
+              return [cfg ? describeAvatar(cfg) : "", character.appearance]
+                .filter(Boolean)
+                .join("、");
+            })()}
+          />
           <Section title="性格特点" content={character.personality} />
           <Section title="说话风格 / 口头禅" content={character.voice} />
           <Section title="背景故事" content={character.backstory} />

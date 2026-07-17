@@ -115,6 +115,32 @@ test.describe("人物库", () => {
     }
   });
 
+  test("捏脸：图片点选脸型/肤色/发型/胡子/身材", async ({ page }) => {
+    const name = `捏脸人物${Date.now()}`;
+    await page.goto("/characters/new");
+    await page.getByTestId("input-name").fill(name);
+    // 形象 tab（默认）：全部图片/色板点选
+    await page.getByRole("button", { name: "瓜子脸", exact: true }).click();
+    await page.getByRole("button", { name: "古铜", exact: true }).click();
+    await page.getByRole("button", { name: "双马尾", exact: true }).click();
+    await page.getByRole("button", { name: "银白", exact: true }).click();
+    await page.getByRole("button", { name: "络腮胡", exact: true }).click();
+    await page.getByRole("button", { name: "健壮", exact: true }).click();
+    await expect(page.getByTestId("preview-avatar").locator("svg")).toBeVisible();
+    await page.getByTestId("submit-character").click();
+
+    // 详情页：形象转成中文外貌描述
+    await expect(page).toHaveURL(/\/characters\/\d+$/, { timeout: 20_000 });
+    await expect(
+      page.getByText("瓜子脸、古铜肤色、银白双马尾、络腮胡、健壮身材")
+    ).toBeVisible({ timeout: 10_000 });
+
+    // 清理
+    await page.getByTestId("delete-character").click();
+    await page.getByTestId("confirm-delete").click();
+    await expect(page).toHaveURL("/");
+  });
+
   test("随机姓名按钮可生成姓名", async ({ page }) => {
     await page.goto("/characters/new");
     await page.getByTestId("random-name").click();

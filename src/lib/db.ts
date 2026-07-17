@@ -14,6 +14,7 @@ const SCHEMA = `CREATE TABLE IF NOT EXISTS characters (
   tags TEXT NOT NULL DEFAULT '',
   avatar_emoji TEXT NOT NULL DEFAULT '🙂',
   avatar_color TEXT NOT NULL DEFAULT '#6366f1',
+  avatar_config TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 )`;
@@ -21,5 +22,13 @@ const SCHEMA = `CREATE TABLE IF NOT EXISTS characters (
 export async function getDb(): Promise<D1Database> {
   const { env } = getRequestContext();
   await env.DB.prepare(SCHEMA).run();
+  try {
+    // 兼容 0002 之前建的表；列已存在时会抛错，忽略即可
+    await env.DB.prepare(
+      "ALTER TABLE characters ADD COLUMN avatar_config TEXT NOT NULL DEFAULT ''"
+    ).run();
+  } catch {
+    // duplicate column — 已是最新结构
+  }
   return env.DB;
 }
