@@ -11,8 +11,8 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "preview": "wrangler pages dev .vercel/output/static",
-    "deploy:test": "wrangler pages deploy .vercel/output/static --project-name=character-vault-test",
-    "deploy:prod": "wrangler pages deploy .vercel/output/static --project-name=character-vault"
+    "deploy:test": "wrangler pages deploy .vercel/output/static --project-name=character-vault --branch=feat/initial-build",
+    "deploy:prod": "wrangler pages deploy .vercel/output/static --project-name=character-vault --branch=main"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
