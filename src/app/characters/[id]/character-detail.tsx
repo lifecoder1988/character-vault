@@ -29,8 +29,9 @@ import {
 } from "@/components/ui/select";
 import { CharacterAvatar } from "@/components/character-avatar";
 import { buildStoryPrompt } from "@/lib/prompt";
+import { buildPortraitPrompt } from "@/lib/portrait-prompt";
 import { describeAvatar, parseAvatarConfig } from "@/lib/avatar";
-import { PORTRAIT_STYLES } from "@/lib/portrait-styles";
+import { PORTRAIT_STYLES, stylePromptOf } from "@/lib/portrait-styles";
 import type { Character } from "@/lib/types";
 import { parseTags } from "@/lib/types";
 
@@ -248,6 +249,32 @@ export default function CharacterDetail() {
                   : "生成 AI 立绘"}
             </Button>
           </div>
+          <details className="w-full rounded-lg border px-4 py-3">
+            <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
+              查看完整生图 prompt
+            </summary>
+            <p
+              className="mt-3 whitespace-pre-wrap rounded-md bg-muted p-3 text-sm leading-relaxed"
+              data-testid="portrait-prompt"
+            >
+              {buildPortraitPrompt(character, stylePromptOf(portraitStyle))}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={async () => {
+                await navigator.clipboard.writeText(
+                  buildPortraitPrompt(character, stylePromptOf(portraitStyle))
+                );
+                toast.success("已复制生图 prompt");
+              }}
+            >
+              <Copy className="size-4" />
+              复制 prompt
+            </Button>
+          </details>
         </CardContent>
       </Card>
 

@@ -1,30 +1,12 @@
 import { getRequestContext } from "@cloudflare/next-on-pages";
 import { getDb } from "@/lib/db";
-import { describeAvatar, parseAvatarConfig } from "@/lib/avatar";
+import { buildPortraitPrompt } from "@/lib/portrait-prompt";
 import { stylePromptOf } from "@/lib/portrait-styles";
 import type { Character } from "@/lib/types";
 
 export const runtime = "edge";
 
 type Params = { params: Promise<{ id: string }> };
-
-function buildPortraitPrompt(c: Character, stylePrompt: string): string {
-  const avatar = parseAvatarConfig(c.avatar_config);
-  const look = [avatar ? describeAvatar(avatar) : "", c.appearance]
-    .filter(Boolean)
-    .join("、");
-  const parts = [
-    `${stylePrompt}的角色立绘：${c.name}`,
-    c.role && `角色定位：${c.role}`,
-    c.gender && `性别：${c.gender}`,
-    c.age && `年龄：${c.age}`,
-    look && `外貌：${look}`,
-    c.personality && `性格气质：${c.personality}`,
-    c.appearance_prompt && `画面参考：${c.appearance_prompt}`,
-  ].filter(Boolean);
-  parts.push("全身立绘，正面站立，干净的浅色纯色背景，构图居中，高质量，无文字，无水印");
-  return parts.join("。");
-}
 
 function base64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64);
