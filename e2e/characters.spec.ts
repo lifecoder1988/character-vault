@@ -25,8 +25,11 @@ test.describe("人物库", () => {
     await page.getByTestId("input-tags").fill("奇幻, 冒险");
     await page.getByTestId("submit-character").click();
 
-    // 详情
-    await expect(page.getByTestId("character-name")).toHaveText(name);
+    // 详情（dev 下 edge 路由首次编译较慢，放宽跳转等待）
+    await expect(page).toHaveURL(/\/characters\/\d+$/, { timeout: 20_000 });
+    await expect(page.getByTestId("character-name")).toHaveText(name, {
+      timeout: 10_000,
+    });
     await expect(page.getByText("银白色长发，绿色斗篷")).toBeVisible();
 
     // 复制角色卡
