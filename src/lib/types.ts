@@ -13,11 +13,15 @@ export interface Character {
   avatar_emoji: string;
   avatar_color: string;
   avatar_config: string;
+  portrait_key: string;
   created_at: string;
   updated_at: string;
 }
 
-export type CharacterInput = Omit<Character, "id" | "created_at" | "updated_at">;
+export type CharacterInput = Omit<
+  Character,
+  "id" | "portrait_key" | "created_at" | "updated_at"
+>;
 
 export function parseTags(tags: string): string[] {
   return tags

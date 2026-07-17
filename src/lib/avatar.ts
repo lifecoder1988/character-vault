@@ -7,6 +7,8 @@ export interface AvatarConfig {
   hairColor: string;
   beard: string;
   body: string;
+  /** 渲染画风：AI 插画部件 or 矢量简笔（旧数据默认 svg） */
+  style: "svg" | "art";
 }
 
 export const FACE_OPTIONS = [
@@ -67,6 +69,7 @@ export const DEFAULT_AVATAR: AvatarConfig = {
   hairColor: "#2c222b",
   beard: "none",
   body: "average",
+  style: "art",
 };
 
 export function parseAvatarConfig(raw: string): AvatarConfig | null {
@@ -74,7 +77,8 @@ export function parseAvatarConfig(raw: string): AvatarConfig | null {
   try {
     const parsed = JSON.parse(raw) as Partial<AvatarConfig>;
     if (!parsed || typeof parsed !== "object") return null;
-    return { ...DEFAULT_AVATAR, ...parsed };
+    // 旧数据没有 style 字段：保持矢量渲染，避免形象突变
+    return { ...DEFAULT_AVATAR, style: "svg", ...parsed };
   } catch {
     return null;
   }
@@ -99,7 +103,7 @@ export function describeAvatar(config: AvatarConfig): string {
   return parts.filter(Boolean).join("、");
 }
 
-export function randomAvatarConfig(): AvatarConfig {
+export function randomAvatarConfig(style: AvatarConfig["style"] = "art"): AvatarConfig {
   const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
   return {
     face: pick(FACE_OPTIONS).id,
@@ -108,5 +112,6 @@ export function randomAvatarConfig(): AvatarConfig {
     hairColor: pick(HAIR_COLOR_OPTIONS).id,
     beard: Math.random() < 0.75 ? "none" : pick(BEARD_OPTIONS).id,
     body: pick(BODY_OPTIONS).id,
+    style,
   };
 }

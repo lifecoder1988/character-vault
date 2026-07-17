@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Copy, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Copy, Pencil, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +41,7 @@ export default function CharacterDetail() {
   const router = useRouter();
   const [character, setCharacter] = useState<Character | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/characters/${id}`);
@@ -59,6 +61,23 @@ export default function CharacterDetail() {
     if (!character) return;
     await navigator.clipboard.writeText(buildStoryPrompt(character));
     toast.success(`已复制「${character.name}」的角色设定卡，粘贴给 AI 即可开始讲故事`);
+  };
+
+  const generatePortrait = async () => {
+    setGenerating(true);
+    try {
+      const res = await fetch(`/api/characters/${id}/portrait`, { method: "POST" });
+      if (!res.ok) {
+        const data = (await res.json()) as { error?: string };
+        throw new Error(data.error || "生成失败");
+      }
+      toast.success("立绘生成完成！");
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "生成失败");
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -152,6 +171,43 @@ export default function CharacterDetail() {
           </AlertDialog>
         </div>
       </div>
+
+      <Card className="mb-6">
+        <CardContent className="flex flex-col items-center gap-4 p-6">
+          {character.portrait_key ? (
+            <Image
+              src={`/api/characters/${character.id}/portrait?v=${encodeURIComponent(character.portrait_key)}`}
+              alt={`${character.name} 的立绘`}
+              width={420}
+              height={568}
+              className="max-h-[560px] w-auto rounded-xl border shadow-sm"
+              data-testid="portrait-image"
+              unoptimized
+            />
+          ) : (
+            <div className="flex w-full flex-col items-center gap-1 rounded-xl border border-dashed py-10 text-center">
+              <p className="text-3xl">🖼️</p>
+              <p className="text-sm text-muted-foreground">
+                还没有立绘，用 AI 按人物设定画一张吧
+              </p>
+            </div>
+          )}
+          <Button
+            type="button"
+            variant={character.portrait_key ? "outline" : "default"}
+            onClick={generatePortrait}
+            disabled={generating}
+            data-testid="generate-portrait"
+          >
+            <Sparkles className="size-4" />
+            {generating
+              ? "AI 绘制中，约需 1 分钟…"
+              : character.portrait_key
+                ? "重新生成立绘"
+                : "生成 AI 立绘"}
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="flex flex-col gap-5 p-6">

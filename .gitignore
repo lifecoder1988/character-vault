@@ -48,3 +48,6 @@ blob-report/
 # cloudflare
 .wrangler/
 .vercel/
+
+# local secrets
+.dev.vars

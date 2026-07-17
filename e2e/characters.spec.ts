@@ -126,19 +126,35 @@ test.describe("人物库", () => {
     await page.getByRole("button", { name: "银白", exact: true }).click();
     await page.getByRole("button", { name: "络腮胡", exact: true }).click();
     await page.getByRole("button", { name: "健壮", exact: true }).click();
-    await expect(page.getByTestId("preview-avatar").locator("svg")).toBeVisible();
+    await expect(page.getByTestId("preview-avatar")).toBeVisible();
     await page.getByTestId("submit-character").click();
 
-    // 详情页：形象转成中文外貌描述
+    // 详情页：形象转成中文外貌描述 + 立绘生成入口
     await expect(page).toHaveURL(/\/characters\/\d+$/, { timeout: 20_000 });
     await expect(
       page.getByText("瓜子脸、古铜肤色、银白双马尾、络腮胡、健壮身材")
     ).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId("generate-portrait")).toBeVisible();
 
     // 清理
     await page.getByTestId("delete-character").click();
     await page.getByTestId("confirm-delete").click();
     await expect(page).toHaveURL("/");
+  });
+
+  test("画风切换：AI 插画 ↔ 矢量简笔", async ({ page }) => {
+    await page.goto("/characters/new");
+    // 默认 AI 插画：分层 img 渲染
+    await expect(
+      page.getByTestId("preview-avatar").locator("img").first()
+    ).toBeVisible({ timeout: 10_000 });
+    // 切到矢量简笔：SVG 渲染
+    await page.getByRole("button", { name: "矢量简笔", exact: true }).click();
+    await expect(page.getByTestId("preview-avatar").locator("svg")).toBeVisible();
+    await page.getByRole("button", { name: "AI 插画", exact: true }).click();
+    await expect(
+      page.getByTestId("preview-avatar").locator("img").first()
+    ).toBeVisible();
   });
 
   test("随机姓名按钮可生成姓名", async ({ page }) => {

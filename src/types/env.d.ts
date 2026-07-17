@@ -2,6 +2,8 @@
 
 interface CloudflareEnv {
   DB: D1Database;
+  BUCKET: R2Bucket;
+  ZHIPUAI_API_KEY?: string;
 }
 
 declare module "@cloudflare/next-on-pages" {

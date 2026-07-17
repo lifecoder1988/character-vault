@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { AvatarSvg } from "@/components/character-avatar";
+import { AvatarRender } from "@/components/character-avatar";
 import type { AvatarConfig } from "@/lib/avatar";
 import {
   BEARD_OPTIONS,
@@ -165,7 +165,7 @@ function AvatarOptionGrid({
                 : "border-input"
             )}
           >
-            <AvatarSvg
+            <AvatarRender
               config={{ ...current, ...patch(option.id) }}
               clothColor={clothColor}
               size={44}
@@ -395,6 +395,24 @@ export function CharacterForm({ character }: { character?: Character }) {
             </TabsList>
 
             <TabsContent value="look" className="mt-4 flex flex-col gap-5">
+              <div className="flex flex-col gap-2">
+                <Label>画风</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {(
+                    [
+                      { id: "art", label: "AI 插画" },
+                      { id: "svg", label: "矢量简笔" },
+                    ] as const
+                  ).map((option) => (
+                    <Chip
+                      key={option.id}
+                      label={option.label}
+                      active={avatar.style === option.id}
+                      onClick={() => patchAvatar({ style: option.id })}
+                    />
+                  ))}
+                </div>
+              </div>
               <AvatarOptionGrid
                 label="脸型"
                 options={FACE_OPTIONS}
@@ -563,7 +581,7 @@ export function CharacterForm({ character }: { character?: Character }) {
                   }
                   data-testid="preview-avatar"
                 >
-                  <AvatarSvg config={avatar} clothColor={avatarColor} size={104} />
+                  <AvatarRender config={avatar} clothColor={avatarColor} size={104} />
                 </div>
                 <p className="text-lg font-semibold" data-testid="preview-name">
                   {name.trim() || "未命名人物"}

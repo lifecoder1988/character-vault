@@ -1,5 +1,9 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
 import type { AvatarConfig } from "@/lib/avatar";
 import { parseAvatarConfig } from "@/lib/avatar";
+import { artLayers, tintedPartUrl } from "@/lib/avatar-art";
 
 /** 分层 SVG 捏脸小人：发型(后层) → 身体 → 脖子 → 头 → 五官/胡子 → 发型(前层) */
 export function AvatarSvg({
@@ -132,7 +136,80 @@ export function AvatarSvg({
   );
 }
 
-/** 人物头像：有捏脸配置时渲染 SVG 小人，否则回退到 emoji（兼容旧数据） */
+/** AI 插画部件分层渲染：底图运行时染色（肤色/发色/衣色） */
+export function ArtAvatar({
+  config,
+  clothColor,
+  size = 64,
+}: {
+  config: AvatarConfig;
+  clothColor: string;
+  size?: number;
+}) {
+  const layers = useMemo(() => artLayers(config, clothColor), [config, clothColor]);
+  const [urls, setUrls] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let alive = true;
+    layers.forEach((layer) => {
+      const key = `${layer.part}|${layer.target}`;
+      tintedPartUrl(layer.part, layer.base, layer.target)
+        .then((url) => {
+          if (!alive) return;
+          setUrls((prev) => (prev[key] === url ? prev : { ...prev, [key]: url }));
+        })
+        .catch(() => {});
+    });
+    return () => {
+      alive = false;
+    };
+  }, [layers]);
+
+  return (
+    <div className="relative" style={{ width: size, height: size }} aria-hidden="true">
+      {layers.map((layer) => {
+        const key = `${layer.part}|${layer.target}`;
+        const url = urls[key];
+        if (!url) return null;
+        const w = layer.layout.w * size;
+        return (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={key}
+            src={url}
+            alt=""
+            className="absolute select-none"
+            draggable={false}
+            style={{
+              width: w,
+              height: w,
+              left: layer.layout.cx * size - w / 2,
+              top: layer.layout.cy * size - w / 2,
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+/** 按画风分发：AI 插画 or 矢量简笔 */
+export function AvatarRender({
+  config,
+  clothColor,
+  size = 64,
+}: {
+  config: AvatarConfig;
+  clothColor: string;
+  size?: number;
+}) {
+  if (config.style === "art") {
+    return <ArtAvatar config={config} clothColor={clothColor} size={size} />;
+  }
+  return <AvatarSvg config={config} clothColor={clothColor} size={size} />;
+}
+
+/** 人物头像：有捏脸配置时渲染小人，否则回退到 emoji（兼容旧数据） */
 export function CharacterAvatar({
   config,
   emoji,
@@ -156,7 +233,7 @@ export function CharacterAvatar({
       }}
     >
       {parsed ? (
-        <AvatarSvg config={parsed} clothColor={color} size={size * 0.92} />
+        <AvatarRender config={parsed} clothColor={color} size={size * 0.92} />
       ) : (
         <span>{emoji || "🙂"}</span>
       )}
