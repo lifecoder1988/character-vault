@@ -19,10 +19,14 @@ test.describe("人物库", () => {
     await page.getByTestId("new-character").click();
     await expect(page).toHaveURL(/\/characters\/new/);
     await page.getByTestId("input-name").fill(name);
-    await page.getByTestId("input-role").fill("主角");
-    await page.getByTestId("input-appearance").fill("银白色长发，绿色斗篷");
-    await page.getByTestId("input-personality").fill("沉着冷静，足智多谋");
-    await page.getByTestId("input-tags").fill("奇幻, 冒险");
+    await page.getByRole("button", { name: "主角", exact: true }).click();
+    await page.getByRole("button", { name: "银白色", exact: true }).click();
+    await page.getByRole("button", { name: "穿斗篷", exact: true }).click();
+    await page.getByTestId("input-appearance-custom").fill("左眼角有星形印记");
+    await page.getByRole("button", { name: "冷静", exact: true }).click();
+    await page.getByRole("button", { name: "机智", exact: true }).click();
+    await page.getByRole("button", { name: "奇幻", exact: true }).click();
+    await page.getByRole("button", { name: "冒险", exact: true }).click();
     await page.getByTestId("submit-character").click();
 
     // 详情（dev 下 edge 路由首次编译较慢，放宽跳转等待）
@@ -30,7 +34,8 @@ test.describe("人物库", () => {
     await expect(page.getByTestId("character-name")).toHaveText(name, {
       timeout: 10_000,
     });
-    await expect(page.getByText("银白色长发，绿色斗篷")).toBeVisible();
+    await expect(page.getByText("银白色、穿斗篷、左眼角有星形印记")).toBeVisible();
+    await expect(page.getByText("冷静、机智")).toBeVisible();
 
     // 复制角色卡
     await page.getByTestId("copy-prompt").click();
@@ -40,9 +45,12 @@ test.describe("人物库", () => {
     expect(clipboard).toContain("外貌");
     expect(clipboard).toContain("保持其外貌、性格与说话风格一致");
 
-    // 编辑
+    // 编辑（已选选项应回填为选中态）
     await page.getByTestId("edit-character").click();
     await expect(page).toHaveURL(/\/edit/);
+    await expect(
+      page.getByRole("button", { name: "冷静", exact: true })
+    ).toHaveAttribute("aria-pressed", "true");
     await page.getByTestId("input-name").fill(updatedName);
     await page.getByTestId("submit-character").click();
     await expect(page.getByTestId("character-name")).toHaveText(updatedName);
@@ -96,6 +104,12 @@ test.describe("人物库", () => {
         await page.request.delete(`/api/characters/${c.id}`);
       }
     }
+  });
+
+  test("随机姓名按钮可生成姓名", async ({ page }) => {
+    await page.goto("/characters/new");
+    await page.getByTestId("random-name").click();
+    await expect(page.getByTestId("input-name")).not.toHaveValue("");
   });
 
   test("姓名为空时无法创建", async ({ page }) => {
