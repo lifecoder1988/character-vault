@@ -128,51 +128,82 @@ function ChipGroup({
   );
 }
 
-/** 图片式选项网格：每个选项渲染一个应用了该选项的迷你小人 */
+type PartPrefix = "face" | "hair" | "beard" | "body";
+
+/** 图片式选项网格：展示部件本身（固定素材，不随其他选择联动） */
 function AvatarOptionGrid({
   label,
   options,
-  current,
-  clothColor,
+  partPrefix,
+  artStyle,
+  gender,
   selectedId,
   onSelect,
-  patch,
 }: {
   label: string;
   options: { id: string; label: string }[];
-  current: AvatarConfig;
-  clothColor: string;
+  partPrefix: PartPrefix;
+  artStyle: AvatarConfig["style"];
+  gender: AvatarConfig["gender"];
   selectedId: string;
   onSelect: (id: string) => void;
-  patch: (id: string) => Partial<AvatarConfig>;
 }) {
   return (
     <div className="flex flex-col gap-2">
       <Label>{label}</Label>
       <div className="flex flex-wrap gap-2">
-        {options.map((option) => (
-          <button
-            key={option.id}
-            type="button"
-            aria-label={option.label}
-            aria-pressed={selectedId === option.id}
-            title={option.label}
-            onClick={() => onSelect(option.id)}
-            className={cn(
-              "flex flex-col items-center gap-0.5 rounded-lg border p-1.5 transition-colors hover:bg-accent",
-              selectedId === option.id
-                ? "border-primary bg-accent ring-1 ring-primary"
-                : "border-input"
-            )}
-          >
-            <AvatarRender
-              config={{ ...current, ...patch(option.id) }}
-              clothColor={clothColor}
-              size={44}
-            />
-            <span className="text-[10px] text-muted-foreground">{option.label}</span>
-          </button>
-        ))}
+        {options.map((option) => {
+          const isNone = option.id === "bald" || option.id === "none";
+          const file =
+            partPrefix === "body"
+              ? `body_${option.id}_${gender}`
+              : `${partPrefix}_${option.id}`;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              aria-label={option.label}
+              aria-pressed={selectedId === option.id}
+              title={option.label}
+              onClick={() => onSelect(option.id)}
+              className={cn(
+                "flex flex-col items-center gap-0.5 rounded-lg border p-1.5 transition-colors hover:bg-accent",
+                selectedId === option.id
+                  ? "border-primary bg-accent ring-1 ring-primary"
+                  : "border-input"
+              )}
+            >
+              {isNone ? (
+                <span className="flex size-11 items-center justify-center rounded-full border border-dashed text-muted-foreground">
+                  ✕
+                </span>
+              ) : artStyle === "art" ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`/avatar-parts/${file}.png`}
+                  alt=""
+                  className="size-11 select-none object-contain"
+                  draggable={false}
+                />
+              ) : (
+                <AvatarRender
+                  config={{
+                    ...DEFAULT_AVATAR,
+                    style: "svg",
+                    gender,
+                    beard: "none",
+                    // 脸型/胡子缩略图不戴默认发型，部件更清楚
+                    hair: partPrefix === "face" || partPrefix === "beard" ? "bald" : DEFAULT_AVATAR.hair,
+                    [partPrefix]: option.id,
+                  }}
+                  clothColor="#6366f1"
+                  size={44}
+                />
+              )}
+              <span className="text-[10px] text-muted-foreground">{option.label}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -255,13 +286,25 @@ export function CharacterForm({ character }: { character?: Character }) {
   );
   const [avatarEmoji, setAvatarEmoji] = useState(character?.avatar_emoji || "🧒");
   const [avatarColor, setAvatarColor] = useState(character?.avatar_color || "#6366f1");
-  const [avatar, setAvatar] = useState<AvatarConfig>(
-    () => parseAvatarConfig(character?.avatar_config ?? "") ?? DEFAULT_AVATAR
-  );
+  const [avatar, setAvatar] = useState<AvatarConfig>(() => {
+    const parsed = parseAvatarConfig(character?.avatar_config ?? "") ?? DEFAULT_AVATAR;
+    // 旧数据没有形象性别：从人物性别字段推导
+    return character?.gender === "女" ? { ...parsed, gender: "f" } : parsed;
+  });
   const [saving, setSaving] = useState(false);
 
   const patchAvatar = (patch: Partial<AvatarConfig>) =>
     setAvatar((a) => ({ ...a, ...patch }));
+
+  /** 性别选择：同步形象性别；女性形象不留胡子 */
+  const selectGender = (next: string[]) => {
+    setGender(next);
+    if (next[0] === "女") {
+      patchAvatar({ gender: "f", beard: "none" });
+    } else {
+      patchAvatar({ gender: "m" });
+    }
+  };
 
   const composed = useMemo(
     () => ({
@@ -278,9 +321,10 @@ export function CharacterForm({ character }: { character?: Character }) {
     setName(randomName());
     setAvatarEmoji(randomPick(EMOJI_PRESETS));
     setAvatarColor(randomPick(COLOR_PRESETS));
-    setAvatar(randomAvatarConfig());
+    const cfg = randomAvatarConfig();
+    setAvatar(cfg);
     setRole([randomPick(ROLE_OPTIONS)]);
-    setGender([randomPick(GENDER_OPTIONS)]);
+    setGender([cfg.gender === "f" ? "女" : "男"]);
     setAge([randomPick(AGE_OPTIONS)]);
     setAppearance(randomPickMany(APPEARANCE_OPTIONS, 2, 4));
     setAppearanceCustom("");
@@ -413,14 +457,21 @@ export function CharacterForm({ character }: { character?: Character }) {
                   ))}
                 </div>
               </div>
+              <ChipGroup
+                label="性别"
+                options={GENDER_OPTIONS}
+                selected={gender}
+                onChange={selectGender}
+                single
+              />
               <AvatarOptionGrid
                 label="脸型"
                 options={FACE_OPTIONS}
-                current={avatar}
-                clothColor={avatarColor}
+                partPrefix="face"
+                artStyle={avatar.style}
+                gender={avatar.gender}
                 selectedId={avatar.face}
                 onSelect={(id) => patchAvatar({ face: id })}
-                patch={(id) => ({ face: id })}
               />
               <SwatchGroup
                 label="肤色"
@@ -431,35 +482,39 @@ export function CharacterForm({ character }: { character?: Character }) {
               <AvatarOptionGrid
                 label="发型"
                 options={HAIR_OPTIONS}
-                current={avatar}
-                clothColor={avatarColor}
+                partPrefix="hair"
+                artStyle={avatar.style}
+                gender={avatar.gender}
                 selectedId={avatar.hair}
                 onSelect={(id) => patchAvatar({ hair: id })}
-                patch={(id) => ({ hair: id })}
               />
-              <SwatchGroup
-                label="发色"
-                options={HAIR_COLOR_OPTIONS}
-                selectedId={avatar.hairColor}
-                onSelect={(id) => patchAvatar({ hairColor: id })}
-              />
-              <AvatarOptionGrid
-                label="胡子"
-                options={BEARD_OPTIONS}
-                current={avatar}
-                clothColor={avatarColor}
-                selectedId={avatar.beard}
-                onSelect={(id) => patchAvatar({ beard: id })}
-                patch={(id) => ({ beard: id })}
-              />
+              {(avatar.hair !== "bald" || avatar.beard !== "none") && (
+                <SwatchGroup
+                  label="发色"
+                  options={HAIR_COLOR_OPTIONS}
+                  selectedId={avatar.hairColor}
+                  onSelect={(id) => patchAvatar({ hairColor: id })}
+                />
+              )}
+              {avatar.gender !== "f" && (
+                <AvatarOptionGrid
+                  label="胡子"
+                  options={BEARD_OPTIONS}
+                  partPrefix="beard"
+                  artStyle={avatar.style}
+                  gender={avatar.gender}
+                  selectedId={avatar.beard}
+                  onSelect={(id) => patchAvatar({ beard: id })}
+                />
+              )}
               <AvatarOptionGrid
                 label="身材"
                 options={BODY_OPTIONS}
-                current={avatar}
-                clothColor={avatarColor}
+                partPrefix="body"
+                artStyle={avatar.style}
+                gender={avatar.gender}
                 selectedId={avatar.body}
                 onSelect={(id) => patchAvatar({ body: id })}
-                patch={(id) => ({ body: id })}
               />
               <SwatchGroup
                 label="服装 / 主题色"
@@ -491,22 +546,13 @@ export function CharacterForm({ character }: { character?: Character }) {
                 onChange={setRole}
                 single
               />
-              <div className="grid gap-5 sm:grid-cols-2">
-                <ChipGroup
-                  label="性别"
-                  options={GENDER_OPTIONS}
-                  selected={gender}
-                  onChange={setGender}
-                  single
-                />
-                <ChipGroup
-                  label="年龄"
-                  options={AGE_OPTIONS}
-                  selected={age}
-                  onChange={setAge}
-                  single
-                />
-              </div>
+              <ChipGroup
+                label="年龄"
+                options={AGE_OPTIONS}
+                selected={age}
+                onChange={setAge}
+                single
+              />
               <ChipGroup
                 label="性格（可多选）"
                 options={PERSONALITY_OPTIONS}

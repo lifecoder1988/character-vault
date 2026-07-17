@@ -4,23 +4,27 @@ import type { AvatarConfig } from "./avatar";
 
 /** 各部件实测主色（离线量出）：染色时按 target/base 逐通道缩放 */
 export const PART_BASE: Record<string, string> = {
-  face_round: "#dda486",
-  face_oval: "#d9a17f",
-  face_square: "#e09e7c",
-  face_long: "#cfa189",
-  hair_short: "#523939",
-  hair_long: "#7b6b71",
-  hair_twintail: "#836262",
-  hair_bun: "#6a6774",
-  hair_curly: "#61616a",
-  hair_spiky: "#63656d",
-  beard_mustache: "#535166",
-  beard_goatee: "#656374",
-  beard_full: "#565f6b",
-  body_slim: "#e2e2e1",
-  body_average: "#d8d9d7",
-  body_strong: "#d9dada",
-  body_round: "#e0e3e0",
+  face_round: "#ebc095",
+  face_oval: "#e8bf99",
+  face_square: "#ebc096",
+  face_long: "#eec499",
+  hair_short: "#8a7d7d",
+  hair_long: "#908a8a",
+  hair_twintail: "#918a8b",
+  hair_bun: "#8e8789",
+  hair_curly: "#8e878a",
+  hair_spiky: "#928f91",
+  beard_mustache: "#898588",
+  beard_goatee: "#878285",
+  beard_full: "#8d878a",
+  body_slim_m: "#f0e1d6",
+  body_average_m: "#f3e6da",
+  body_strong_m: "#edddcd",
+  body_round_m: "#dad7d4",
+  body_slim_f: "#f0e4db",
+  body_average_f: "#efe5dc",
+  body_strong_f: "#f2e0d0",
+  body_round_f: "#f4eae3",
 };
 
 /** 肤色目标要按"部件原生肤色→目标肤色"缩放，基准即部件主色 */
@@ -138,7 +142,12 @@ export function artLayers(config: AvatarConfig, clothColor: string): ArtLayer[] 
     if (!layout) return;
     layers.push({ part, base: PART_BASE[part] ?? fallbackBase, target, layout });
   };
-  push(`body_${config.body}`, BODY_BASE, clothColor, ART_LAYOUT.body[config.body]);
+  push(
+    `body_${config.body}_${config.gender ?? "m"}`,
+    BODY_BASE,
+    clothColor,
+    ART_LAYOUT.body[config.body]
+  );
   push(`face_${config.face}`, FACE_BASE, config.skin, ART_LAYOUT.face[config.face]);
   if (config.beard !== "none") {
     push(

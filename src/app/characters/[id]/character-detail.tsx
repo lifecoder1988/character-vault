@@ -20,9 +20,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { CharacterAvatar } from "@/components/character-avatar";
 import { buildStoryPrompt } from "@/lib/prompt";
 import { describeAvatar, parseAvatarConfig } from "@/lib/avatar";
+import { PORTRAIT_STYLES } from "@/lib/portrait-styles";
 import type { Character } from "@/lib/types";
 import { parseTags } from "@/lib/types";
 
@@ -42,6 +50,19 @@ export default function CharacterDetail() {
   const [character, setCharacter] = useState<Character | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [portraitStyle, setPortraitStyle] = useState<string>("watercolor");
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("portrait-style");
+    if (saved && PORTRAIT_STYLES.some((s) => s.id === saved)) {
+      setPortraitStyle(saved);
+    }
+  }, []);
+
+  const changeStyle = (value: string) => {
+    setPortraitStyle(value);
+    window.localStorage.setItem("portrait-style", value);
+  };
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/characters/${id}`);
@@ -66,7 +87,11 @@ export default function CharacterDetail() {
   const generatePortrait = async () => {
     setGenerating(true);
     try {
-      const res = await fetch(`/api/characters/${id}/portrait`, { method: "POST" });
+      const res = await fetch(`/api/characters/${id}/portrait`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ style: portraitStyle }),
+      });
       if (!res.ok) {
         const data = (await res.json()) as { error?: string };
         throw new Error(data.error || "生成失败");
@@ -192,20 +217,34 @@ export default function CharacterDetail() {
               </p>
             </div>
           )}
-          <Button
-            type="button"
-            variant={character.portrait_key ? "outline" : "default"}
-            onClick={generatePortrait}
-            disabled={generating}
-            data-testid="generate-portrait"
-          >
-            <Sparkles className="size-4" />
-            {generating
-              ? "AI 绘制中，约需 1 分钟…"
-              : character.portrait_key
-                ? "重新生成立绘"
-                : "生成 AI 立绘"}
-          </Button>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <Select value={portraitStyle} onValueChange={changeStyle}>
+              <SelectTrigger className="w-[130px]" data-testid="portrait-style">
+                <SelectValue placeholder="画风" />
+              </SelectTrigger>
+              <SelectContent>
+                {PORTRAIT_STYLES.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant={character.portrait_key ? "outline" : "default"}
+              onClick={generatePortrait}
+              disabled={generating}
+              data-testid="generate-portrait"
+            >
+              <Sparkles className="size-4" />
+              {generating
+                ? "AI 绘制中，约需 1 分钟…"
+                : character.portrait_key
+                  ? "重新生成立绘"
+                  : "生成 AI 立绘"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

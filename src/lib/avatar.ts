@@ -7,6 +7,8 @@ export interface AvatarConfig {
   hairColor: string;
   beard: string;
   body: string;
+  /** 形象性别：影响身材部件与胡子可用性 */
+  gender: "m" | "f";
   /** 渲染画风：AI 插画部件 or 矢量简笔（旧数据默认 svg） */
   style: "svg" | "art";
 }
@@ -69,6 +71,7 @@ export const DEFAULT_AVATAR: AvatarConfig = {
   hairColor: "#2c222b",
   beard: "none",
   body: "average",
+  gender: "m",
   style: "art",
 };
 
@@ -105,13 +108,16 @@ export function describeAvatar(config: AvatarConfig): string {
 
 export function randomAvatarConfig(style: AvatarConfig["style"] = "art"): AvatarConfig {
   const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+  const gender = Math.random() < 0.5 ? "m" : "f";
   return {
     face: pick(FACE_OPTIONS).id,
     skin: pick(SKIN_OPTIONS).id,
     hair: pick(HAIR_OPTIONS).id,
     hairColor: pick(HAIR_COLOR_OPTIONS).id,
-    beard: Math.random() < 0.75 ? "none" : pick(BEARD_OPTIONS).id,
+    // 女性形象不随机出胡子
+    beard: gender === "f" || Math.random() < 0.75 ? "none" : pick(BEARD_OPTIONS).id,
     body: pick(BODY_OPTIONS).id,
+    gender,
     style,
   };
 }

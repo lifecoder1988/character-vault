@@ -1,19 +1,20 @@
 import { getRequestContext } from "@cloudflare/next-on-pages";
 import { getDb } from "@/lib/db";
 import { describeAvatar, parseAvatarConfig } from "@/lib/avatar";
+import { stylePromptOf } from "@/lib/portrait-styles";
 import type { Character } from "@/lib/types";
 
 export const runtime = "edge";
 
 type Params = { params: Promise<{ id: string }> };
 
-function buildPortraitPrompt(c: Character): string {
+function buildPortraitPrompt(c: Character, stylePrompt: string): string {
   const avatar = parseAvatarConfig(c.avatar_config);
   const look = [avatar ? describeAvatar(avatar) : "", c.appearance]
     .filter(Boolean)
     .join("、");
   const parts = [
-    `儿童绘本插画风格的角色立绘：${c.name}`,
+    `${stylePrompt}的角色立绘：${c.name}`,
     c.role && `角色定位：${c.role}`,
     c.gender && `性别：${c.gender}`,
     c.age && `年龄：${c.age}`,
@@ -21,14 +22,94 @@ function buildPortraitPrompt(c: Character): string {
     c.personality && `性格气质：${c.personality}`,
     c.appearance_prompt && `画面参考：${c.appearance_prompt}`,
   ].filter(Boolean);
-  parts.push(
-    "全身立绘，正面站立，柔和的水彩质感，干净的浅色纯色背景，构图居中，高质量，无文字，无水印"
-  );
+  parts.push("全身立绘，正面站立，干净的浅色纯色背景，构图居中，高质量，无文字，无水印");
   return parts.join("。");
 }
 
-/** 生成立绘：调 Zhipu 生图 → 存 R2 → 记录 portrait_key */
-export async function POST(_request: Request, { params }: Params) {
+function base64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+/** OpenAI 兼容生图服务（自建/代理），返回图片字节；失败返回 null */
+async function tryOpenAI(
+  env: CloudflareEnv,
+  prompt: string
+): Promise<ArrayBuffer | null> {
+  if (!env.AI_BASE_URL || !env.AI_API_KEY) return null;
+  try {
+    const res = await fetch(`${env.AI_BASE_URL.replace(/\/$/, "")}/images/generations`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${env.AI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: env.AI_IMAGE_MODEL || "gpt-image-2",
+        prompt,
+        size: "1024x1536",
+      }),
+    });
+    if (!res.ok) {
+      console.error("openai svc error", res.status, (await res.text()).slice(0, 300));
+      return null;
+    }
+    const data = (await res.json()) as {
+      data?: { b64_json?: string; url?: string }[];
+    };
+    const item = data.data?.[0];
+    if (item?.b64_json) return base64ToBytes(item.b64_json).buffer as ArrayBuffer;
+    if (item?.url) {
+      const img = await fetch(item.url);
+      if (img.ok) return await img.arrayBuffer();
+    }
+    return null;
+  } catch (err) {
+    console.error("openai svc unreachable", err);
+    return null;
+  }
+}
+
+/** Zhipu 生图，返回图片字节；失败返回 null */
+async function tryZhipu(
+  env: CloudflareEnv,
+  prompt: string,
+  model: string,
+  size: string
+): Promise<ArrayBuffer | null> {
+  if (!env.ZHIPUAI_API_KEY) return null;
+  try {
+    const res = await fetch(
+      "https://open.bigmodel.cn/api/paas/v4/images/generations",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${env.ZHIPUAI_API_KEY}`,
+        },
+        body: JSON.stringify({ model, prompt, size }),
+      }
+    );
+    if (!res.ok) {
+      console.error("zhipu error", model, res.status, (await res.text()).slice(0, 300));
+      return null;
+    }
+    const data = (await res.json()) as { data?: { url?: string }[] };
+    const url = data.data?.[0]?.url;
+    if (!url) return null;
+    const img = await fetch(url);
+    if (!img.ok) return null;
+    return await img.arrayBuffer();
+  } catch (err) {
+    console.error("zhipu unreachable", err);
+    return null;
+  }
+}
+
+/** 生成立绘：自建 OpenAI 兼容服务 → Zhipu glm-image → 免费 cogview-3-flash，存 R2 */
+export async function POST(request: Request, { params }: Params) {
   const { id } = await params;
   const { env } = getRequestContext();
   const db = await getDb();
@@ -40,56 +121,36 @@ export async function POST(_request: Request, { params }: Params) {
   if (!character) {
     return Response.json({ error: "人物不存在" }, { status: 404 });
   }
-  if (!env.ZHIPUAI_API_KEY) {
+  if (!env.ZHIPUAI_API_KEY && !(env.AI_BASE_URL && env.AI_API_KEY)) {
     return Response.json(
-      { error: "服务端未配置 ZHIPUAI_API_KEY，无法生成立绘" },
+      { error: "服务端未配置任何生图服务，无法生成立绘" },
       { status: 503 }
     );
   }
 
-  const prompt = buildPortraitPrompt(character);
-  // glm-image 质量最好但收费；余额不足/限流时自动降级到免费的 cogview-3-flash
-  const attempts = [
-    { model: "glm-image", size: "1088x1472" },
-    { model: "cogview-3-flash", size: "1024x1024" },
-  ];
-  let genRes: Response | null = null;
-  for (const attempt of attempts) {
-    genRes = await fetch(
-      "https://open.bigmodel.cn/api/paas/v4/images/generations",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${env.ZHIPUAI_API_KEY}`,
-        },
-        body: JSON.stringify({ model: attempt.model, prompt, size: attempt.size }),
-      }
-    );
-    if (genRes.ok) break;
-    const detail = await genRes.text();
-    console.error("zhipu error", attempt.model, genRes.status, detail.slice(0, 300));
-  }
-  if (!genRes || !genRes.ok) {
+  const body = (await request.json().catch(() => ({}))) as { style?: string };
+  const prompt = buildPortraitPrompt(character, stylePromptOf(body.style));
+
+  const bytes =
+    (await tryOpenAI(env, prompt)) ??
+    (await tryZhipu(env, prompt, "glm-image", "1088x1472")) ??
+    (await tryZhipu(env, prompt, "cogview-3-flash", "1024x1024"));
+  if (!bytes) {
     return Response.json(
-      { error: `生图服务暂不可用（${genRes?.status ?? "?"}），请稍后重试` },
+      { error: "生图服务暂不可用，请稍后重试" },
       { status: 502 }
     );
   }
-  const genData = (await genRes.json()) as { data?: { url?: string }[] };
-  const imageUrl = genData.data?.[0]?.url;
-  if (!imageUrl) {
-    return Response.json({ error: "生图服务未返回图片" }, { status: 502 });
-  }
-
-  const imgRes = await fetch(imageUrl);
-  if (!imgRes.ok || !imgRes.body) {
-    return Response.json({ error: "下载生成图片失败" }, { status: 502 });
-  }
-  const bytes = await imgRes.arrayBuffer();
-  const contentType = imgRes.headers.get("content-type") ?? "image/png";
   const key = `portraits/${id}-${crypto.randomUUID()}.png`;
-  await env.BUCKET.put(key, bytes, { httpMetadata: { contentType } });
+  try {
+    // 用 Blob 传参：本地 dev 的 R2 代理对 ArrayBuffer 大参数会断言失败，Blob 走请求体直传
+    await env.BUCKET.put(key, new Blob([bytes]), {
+      httpMetadata: { contentType: "image/png" },
+    });
+  } catch (err) {
+    console.error("r2 put failed:", err);
+    return Response.json({ error: "存储立绘失败" }, { status: 500 });
+  }
 
   const oldKey = character.portrait_key;
   await db

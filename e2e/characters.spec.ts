@@ -142,6 +142,24 @@ test.describe("人物库", () => {
     await expect(page).toHaveURL("/");
   });
 
+  test("联动：女性隐藏胡子，光头隐藏发色", async ({ page }) => {
+    await page.goto("/characters/new");
+    // 默认（男）：胡子和发色都在
+    await expect(page.getByText("胡子", { exact: true })).toBeVisible();
+    await expect(page.getByText("发色", { exact: true })).toBeVisible();
+    // 选女 → 胡子组消失
+    await page.getByRole("button", { name: "女", exact: true }).click();
+    await expect(page.getByText("胡子", { exact: true })).toHaveCount(0);
+    // 选光头（女无胡子）→ 发色也消失
+    await page.getByRole("button", { name: "光头", exact: true }).click();
+    await expect(page.getByText("发色", { exact: true })).toHaveCount(0);
+    // 切回男 + 短发 → 恢复
+    await page.getByRole("button", { name: "男", exact: true }).click();
+    await page.getByRole("button", { name: "短发", exact: true }).click();
+    await expect(page.getByText("胡子", { exact: true })).toBeVisible();
+    await expect(page.getByText("发色", { exact: true })).toBeVisible();
+  });
+
   test("画风切换：AI 插画 ↔ 矢量简笔", async ({ page }) => {
     await page.goto("/characters/new");
     // 默认 AI 插画：分层 img 渲染
