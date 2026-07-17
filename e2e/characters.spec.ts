@@ -19,14 +19,22 @@ test.describe("人物库", () => {
     await page.getByTestId("new-character").click();
     await expect(page).toHaveURL(/\/characters\/new/);
     await page.getByTestId("input-name").fill(name);
-    await page.getByRole("button", { name: "主角", exact: true }).click();
+    // 形象 tab（默认）
     await page.getByRole("button", { name: "银白色", exact: true }).click();
     await page.getByRole("button", { name: "穿斗篷", exact: true }).click();
     await page.getByTestId("input-appearance-custom").fill("左眼角有星形印记");
+    // 特质 tab
+    await page.getByRole("tab", { name: "特质" }).click();
+    await page.getByRole("button", { name: "主角", exact: true }).click();
     await page.getByRole("button", { name: "冷静", exact: true }).click();
     await page.getByRole("button", { name: "机智", exact: true }).click();
+    // 背景 tab
+    await page.getByRole("tab", { name: "背景" }).click();
     await page.getByRole("button", { name: "奇幻", exact: true }).click();
     await page.getByRole("button", { name: "冒险", exact: true }).click();
+    // 实时预览同步成型
+    await expect(page.getByTestId("preview-name")).toHaveText(name);
+    await expect(page.getByTestId("preview-card")).toContainText("冷静、机智");
     await page.getByTestId("submit-character").click();
 
     // 详情（dev 下 edge 路由首次编译较慢，放宽跳转等待）
@@ -48,6 +56,7 @@ test.describe("人物库", () => {
     // 编辑（已选选项应回填为选中态）
     await page.getByTestId("edit-character").click();
     await expect(page).toHaveURL(/\/edit/);
+    await page.getByRole("tab", { name: "特质" }).click();
     await expect(
       page.getByRole("button", { name: "冷静", exact: true })
     ).toHaveAttribute("aria-pressed", "true");
@@ -110,6 +119,15 @@ test.describe("人物库", () => {
     await page.goto("/characters/new");
     await page.getByTestId("random-name").click();
     await expect(page.getByTestId("input-name")).not.toHaveValue("");
+  });
+
+  test("随机捏一个：一键生成完整人物并实时预览", async ({ page }) => {
+    await page.goto("/characters/new");
+    await page.getByTestId("randomize-all").click();
+    await expect(page.getByTestId("input-name")).not.toHaveValue("");
+    await expect(page.getByTestId("preview-name")).not.toHaveText("未命名人物");
+    // 预览卡应出现性格文案（随机至少选中 2 个性格）
+    await expect(page.getByTestId("preview-card")).toContainText("性格");
   });
 
   test("姓名为空时无法创建", async ({ page }) => {

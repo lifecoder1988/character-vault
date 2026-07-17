@@ -128,6 +128,15 @@ const NAME_GIVEN = [
 ];
 
 export function randomName(): string {
-  const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
-  return `${pick(NAME_SPECIES)}${pick(NAME_GIVEN)}`;
+  return `${randomPick(NAME_SPECIES)}${randomPick(NAME_GIVEN)}`;
+}
+
+export function randomPick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+/** 随机取 min~max 个不重复选项 */
+export function randomPickMany<T>(arr: T[], min: number, max: number): T[] {
+  const count = min + Math.floor(Math.random() * (max - min + 1));
+  return [...arr].sort(() => Math.random() - 0.5).slice(0, count);
 }

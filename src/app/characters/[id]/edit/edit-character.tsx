@@ -28,7 +28,7 @@ export default function EditCharacter() {
   }, [load]);
 
   return (
-    <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-10">
+    <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10">
       <Button asChild variant="ghost" size="sm" className="mb-6 -ml-2">
         <Link href={`/characters/${id}`}>
           <ArrowLeft className="size-4" />

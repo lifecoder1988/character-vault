@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Dices } from "lucide-react";
+import { Dices, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { Character, CharacterInput } from "@/lib/types";
@@ -21,6 +24,8 @@ import {
   BACKSTORY_OPTIONS,
   TAG_OPTIONS,
   randomName,
+  randomPick,
+  randomPickMany,
 } from "@/lib/presets";
 
 const EMOJI_PRESETS = ["🧒", "👧", "👦", "🧙", "🦊", "🐰", "🐻", "🐉", "🤖", "👸", "🦸", "🧚"];
@@ -110,6 +115,16 @@ function ChipGroup({
   );
 }
 
+function PreviewSection({ title, text }: { title: string; text: string }) {
+  if (!text) return null;
+  return (
+    <div>
+      <p className="text-xs font-medium text-muted-foreground">{title}</p>
+      <p className="mt-0.5 text-sm leading-relaxed">{text}</p>
+    </div>
+  );
+}
+
 export function CharacterForm({ character }: { character?: Character }) {
   const router = useRouter();
 
@@ -144,6 +159,35 @@ export function CharacterForm({ character }: { character?: Character }) {
   const [avatarColor, setAvatarColor] = useState(character?.avatar_color || "#6366f1");
   const [saving, setSaving] = useState(false);
 
+  const composed = useMemo(
+    () => ({
+      appearance: [...appearance, appearanceCustom.trim()].filter(Boolean).join("、"),
+      personality: personality.join("、"),
+      voice: voice.join("、"),
+      backstory: [...backstory, backstoryCustom.trim()].filter(Boolean).join("；"),
+      tags: [...tags, ...parseTags(tagsCustom)],
+    }),
+    [appearance, appearanceCustom, personality, voice, backstory, backstoryCustom, tags, tagsCustom]
+  );
+
+  const randomizeAll = () => {
+    setName(randomName());
+    setAvatarEmoji(randomPick(EMOJI_PRESETS));
+    setAvatarColor(randomPick(COLOR_PRESETS));
+    setRole([randomPick(ROLE_OPTIONS)]);
+    setGender([randomPick(GENDER_OPTIONS)]);
+    setAge([randomPick(AGE_OPTIONS)]);
+    setAppearance(randomPickMany(APPEARANCE_OPTIONS, 2, 4));
+    setAppearanceCustom("");
+    setPersonality(randomPickMany(PERSONALITY_OPTIONS, 2, 3));
+    setVoice(randomPickMany(VOICE_OPTIONS, 1, 1));
+    setBackstory(randomPickMany(BACKSTORY_OPTIONS, 1, 2));
+    setBackstoryCustom("");
+    setTags(randomPickMany(TAG_OPTIONS, 2, 3));
+    setTagsCustom("");
+    toast("🎲 捏好了一个，随时微调");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -155,12 +199,12 @@ export function CharacterForm({ character }: { character?: Character }) {
       role: role[0] ?? "",
       gender: gender[0] ?? "",
       age: age[0] ?? "",
-      appearance: [...appearance, appearanceCustom.trim()].filter(Boolean).join("、"),
-      personality: personality.join("、"),
-      voice: voice.join("、"),
-      backstory: [...backstory, backstoryCustom.trim()].filter(Boolean).join("；"),
+      appearance: composed.appearance,
+      personality: composed.personality,
+      voice: composed.voice,
+      backstory: composed.backstory,
       appearance_prompt: appearancePrompt,
-      tags: [...tags, ...parseTags(tagsCustom)].join(", "),
+      tags: composed.tags.join(", "),
       avatar_emoji: avatarEmoji,
       avatar_color: avatarColor,
     };
@@ -189,164 +233,258 @@ export function CharacterForm({ character }: { character?: Character }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-      <div className="flex items-center gap-4">
-        <div
-          className="flex size-16 shrink-0 items-center justify-center rounded-full text-3xl"
-          style={{ backgroundColor: `${avatarColor}22` }}
-        >
-          {avatarEmoji}
-        </div>
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap gap-1">
-            {EMOJI_PRESETS.map((emoji) => (
-              <button
-                key={emoji}
-                type="button"
-                className={cn(
-                  "flex size-8 items-center justify-center rounded-md text-lg hover:bg-accent",
-                  avatarEmoji === emoji && "bg-accent ring-1 ring-ring"
-                )}
-                onClick={() => setAvatarEmoji(emoji)}
-              >
-                {emoji}
-              </button>
-            ))}
+    <form onSubmit={handleSubmit}>
+      <div className="grid gap-8 lg:grid-cols-[1fr_300px]">
+        {/* 左侧：捏人控制台 */}
+        <div className="flex min-w-0 flex-col gap-5">
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              className="flex-1"
+              onClick={randomizeAll}
+              data-testid="randomize-all"
+            >
+              <Sparkles className="size-4" />
+              随机捏一个
+            </Button>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {COLOR_PRESETS.map((color) => (
-              <button
-                key={color}
-                type="button"
-                aria-label={`选择颜色 ${color}`}
-                className={cn(
-                  "size-6 rounded-full border border-black/10 transition-transform hover:scale-110",
-                  avatarColor === color && "ring-2 ring-ring ring-offset-2"
-                )}
-                style={{ backgroundColor: color }}
-                onClick={() => setAvatarColor(color)}
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="name">姓名 *</Label>
+            <div className="flex gap-2">
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="点骰子随机，或自己起名"
+                data-testid="input-name"
+                required
               />
-            ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setName(randomName())}
+                data-testid="random-name"
+                title="随机生成姓名"
+                aria-label="随机生成姓名"
+              >
+                <Dices className="size-4" />
+              </Button>
+            </div>
           </div>
+
+          <Tabs defaultValue="look">
+            <TabsList className="w-full">
+              <TabsTrigger value="look" className="flex-1">
+                形象
+              </TabsTrigger>
+              <TabsTrigger value="traits" className="flex-1">
+                特质
+              </TabsTrigger>
+              <TabsTrigger value="story" className="flex-1">
+                背景
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="look" className="mt-4 flex flex-col gap-5">
+              <div className="flex flex-col gap-2">
+                <Label>头像</Label>
+                <div className="flex flex-wrap gap-1">
+                  {EMOJI_PRESETS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      className={cn(
+                        "flex size-9 items-center justify-center rounded-md text-xl hover:bg-accent",
+                        avatarEmoji === emoji && "bg-accent ring-1 ring-ring"
+                      )}
+                      onClick={() => setAvatarEmoji(emoji)}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label>主题色</Label>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {COLOR_PRESETS.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      aria-label={`选择颜色 ${color}`}
+                      className={cn(
+                        "size-7 rounded-full border border-black/10 transition-transform hover:scale-110",
+                        avatarColor === color && "ring-2 ring-ring ring-offset-2"
+                      )}
+                      style={{ backgroundColor: color }}
+                      onClick={() => setAvatarColor(color)}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="flex flex-col gap-2">
+                <ChipGroup
+                  label="外貌特征（可多选）"
+                  options={APPEARANCE_OPTIONS}
+                  selected={appearance}
+                  onChange={setAppearance}
+                />
+                <Input
+                  value={appearanceCustom}
+                  onChange={(e) => setAppearanceCustom(e.target.value)}
+                  placeholder="其他外貌补充（可选）"
+                  data-testid="input-appearance-custom"
+                />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="traits" className="mt-4 flex flex-col gap-5">
+              <ChipGroup
+                label="定位"
+                options={ROLE_OPTIONS}
+                selected={role}
+                onChange={setRole}
+                single
+              />
+              <div className="grid gap-5 sm:grid-cols-2">
+                <ChipGroup
+                  label="性别"
+                  options={GENDER_OPTIONS}
+                  selected={gender}
+                  onChange={setGender}
+                  single
+                />
+                <ChipGroup
+                  label="年龄"
+                  options={AGE_OPTIONS}
+                  selected={age}
+                  onChange={setAge}
+                  single
+                />
+              </div>
+              <ChipGroup
+                label="性格（可多选）"
+                options={PERSONALITY_OPTIONS}
+                selected={personality}
+                onChange={setPersonality}
+              />
+              <ChipGroup
+                label="说话风格（可多选）"
+                options={VOICE_OPTIONS}
+                selected={voice}
+                onChange={setVoice}
+              />
+            </TabsContent>
+
+            <TabsContent value="story" className="mt-4 flex flex-col gap-5">
+              <div className="flex flex-col gap-2">
+                <ChipGroup
+                  label="背景故事（可多选组合）"
+                  options={BACKSTORY_OPTIONS}
+                  selected={backstory}
+                  onChange={setBackstory}
+                />
+                <Textarea
+                  value={backstoryCustom}
+                  onChange={(e) => setBackstoryCustom(e.target.value)}
+                  placeholder="其他背景补充（可选）"
+                  rows={2}
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <ChipGroup
+                  label="标签（可多选）"
+                  options={TAG_OPTIONS}
+                  selected={tags}
+                  onChange={setTags}
+                />
+                <Input
+                  value={tagsCustom}
+                  onChange={(e) => setTagsCustom(e.target.value)}
+                  placeholder="其他标签，逗号分隔（可选）"
+                  data-testid="input-tags-custom"
+                />
+              </div>
+              <details className="rounded-lg border px-4 py-3">
+                <summary className="cursor-pointer text-sm font-medium">
+                  出图提示词（可选，用于 AI 绘图保持形象一致）
+                </summary>
+                <Textarea
+                  className="mt-3"
+                  value={appearancePrompt}
+                  onChange={(e) => setAppearancePrompt(e.target.value)}
+                  placeholder="如：a small orange fox with a white-tipped tail, wearing a blue scarf, watercolor style"
+                  rows={3}
+                />
+              </details>
+            </TabsContent>
+          </Tabs>
         </div>
-      </div>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="name">姓名 *</Label>
-        <div className="flex gap-2">
-          <Input
-            id="name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="点右边骰子随机一个，或自己起名"
-            data-testid="input-name"
-            required
-          />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setName(randomName())}
-            data-testid="random-name"
-            title="随机生成姓名"
-          >
-            <Dices className="size-4" />
-            随机
-          </Button>
-        </div>
-      </div>
+        {/* 右侧：实时预览 */}
+        <aside className="h-fit lg:sticky lg:top-6">
+          <Card data-testid="preview-card">
+            <CardContent className="flex flex-col gap-4 p-5">
+              <div className="flex flex-col items-center gap-2 text-center">
+                <div
+                  className="flex size-24 items-center justify-center rounded-full text-5xl ring-4"
+                  style={
+                    {
+                      backgroundColor: `${avatarColor}22`,
+                      "--tw-ring-color": `${avatarColor}55`,
+                    } as React.CSSProperties
+                  }
+                >
+                  {avatarEmoji}
+                </div>
+                <p className="text-lg font-semibold" data-testid="preview-name">
+                  {name.trim() || "未命名人物"}
+                </p>
+                <div className="flex flex-wrap justify-center gap-1">
+                  {role[0] && <Badge variant="secondary">{role[0]}</Badge>}
+                  {gender[0] && <Badge variant="outline">{gender[0]}</Badge>}
+                  {age[0] && <Badge variant="outline">{age[0]}</Badge>}
+                </div>
+              </div>
 
-      <ChipGroup label="定位" options={ROLE_OPTIONS} selected={role} onChange={setRole} single />
+              <div className="flex flex-col gap-3">
+                <PreviewSection title="外貌" text={composed.appearance} />
+                <PreviewSection title="性格" text={composed.personality} />
+                <PreviewSection title="说话风格" text={composed.voice} />
+                <PreviewSection title="背景" text={composed.backstory} />
+                {composed.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {composed.tags.map((tag) => (
+                      <Badge key={tag} variant="outline" className="text-xs">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                {!composed.appearance &&
+                  !composed.personality &&
+                  !composed.backstory &&
+                  composed.tags.length === 0 && (
+                    <p className="text-center text-sm text-muted-foreground">
+                      左边点一点，人物就在这里成型 ✨
+                    </p>
+                  )}
+              </div>
 
-      <div className="grid gap-6 sm:grid-cols-2">
-        <ChipGroup
-          label="性别"
-          options={GENDER_OPTIONS}
-          selected={gender}
-          onChange={setGender}
-          single
-        />
-        <ChipGroup label="年龄" options={AGE_OPTIONS} selected={age} onChange={setAge} single />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <ChipGroup
-          label="外貌特征（可多选）"
-          options={APPEARANCE_OPTIONS}
-          selected={appearance}
-          onChange={setAppearance}
-        />
-        <Input
-          value={appearanceCustom}
-          onChange={(e) => setAppearanceCustom(e.target.value)}
-          placeholder="其他外貌补充（可选）"
-          data-testid="input-appearance-custom"
-        />
-      </div>
-
-      <ChipGroup
-        label="性格（可多选）"
-        options={PERSONALITY_OPTIONS}
-        selected={personality}
-        onChange={setPersonality}
-      />
-
-      <ChipGroup
-        label="说话风格（可多选）"
-        options={VOICE_OPTIONS}
-        selected={voice}
-        onChange={setVoice}
-      />
-
-      <div className="flex flex-col gap-2">
-        <ChipGroup
-          label="背景故事（可多选组合）"
-          options={BACKSTORY_OPTIONS}
-          selected={backstory}
-          onChange={setBackstory}
-        />
-        <Textarea
-          value={backstoryCustom}
-          onChange={(e) => setBackstoryCustom(e.target.value)}
-          placeholder="其他背景补充（可选）"
-          rows={2}
-        />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <ChipGroup
-          label="标签（可多选）"
-          options={TAG_OPTIONS}
-          selected={tags}
-          onChange={setTags}
-        />
-        <Input
-          value={tagsCustom}
-          onChange={(e) => setTagsCustom(e.target.value)}
-          placeholder="其他标签，逗号分隔（可选）"
-          data-testid="input-tags-custom"
-        />
-      </div>
-
-      <details className="rounded-lg border px-4 py-3">
-        <summary className="cursor-pointer text-sm font-medium">
-          出图提示词（可选，用于 AI 绘图保持形象一致）
-        </summary>
-        <Textarea
-          className="mt-3"
-          value={appearancePrompt}
-          onChange={(e) => setAppearancePrompt(e.target.value)}
-          placeholder="如：a small orange fox with a white-tipped tail, wearing a blue scarf, watercolor style"
-          rows={3}
-        />
-      </details>
-
-      <div className="flex gap-3">
-        <Button type="submit" disabled={saving} data-testid="submit-character">
-          {saving ? "保存中…" : character ? "保存修改" : "创建人物"}
-        </Button>
-        <Button type="button" variant="outline" onClick={() => router.back()}>
-          取消
-        </Button>
+              <div className="flex flex-col gap-2">
+                <Button type="submit" disabled={saving} data-testid="submit-character">
+                  {saving ? "保存中…" : character ? "保存修改" : "就是 TA 了，创建！"}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => router.back()}>
+                  取消
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </aside>
       </div>
     </form>
   );
