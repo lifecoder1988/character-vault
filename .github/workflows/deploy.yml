@@ -33,7 +33,7 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm run lint
-      - run: pnpm run build
+      - run: pnpm run pages:build
 
       - name: Upload build output
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -100,4 +100,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy .vercel/output/static --project-name=character-vault
+          command: pages deploy .vercel/output/static --project-name=character-vault --branch=main
