@@ -1,0 +1,10 @@
+name = "character-vault"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".vercel/output/static"
+
+# database_id 在 Phase 6 创建 D1 后填入真实值；本地开发用占位符即可
+[[d1_databases]]
+binding = "DB"
+database_name = "character-vault-db-test"
+database_id = "00000000-0000-0000-0000-000000000000"
