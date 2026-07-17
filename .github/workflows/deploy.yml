@@ -33,7 +33,7 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm run lint
-      - run: pnpm run build
+      - run: pnpm run pages:build
 
       - name: Upload build output
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
