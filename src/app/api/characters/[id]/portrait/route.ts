@@ -131,16 +131,24 @@ export async function POST(request: Request, { params }: Params) {
   const body = (await request.json().catch(() => ({}))) as { style?: string };
   const prompt = buildPortraitPrompt(character, stylePromptOf(body.style));
 
-  const bytes =
-    (await tryOpenAI(env, prompt)) ??
-    (await tryZhipu(env, prompt, "glm-image", "1088x1472")) ??
-    (await tryZhipu(env, prompt, "cogview-3-flash", "1024x1024"));
+  // 主服务偶发繁忙（如并发生成）时先重试一次，再降级
+  let provider = env.AI_IMAGE_MODEL || "gpt-image-2";
+  let bytes = (await tryOpenAI(env, prompt)) ?? (await tryOpenAI(env, prompt));
+  if (!bytes) {
+    provider = "glm-image";
+    bytes = await tryZhipu(env, prompt, "glm-image", "1088x1472");
+  }
+  if (!bytes) {
+    provider = "cogview-3-flash";
+    bytes = await tryZhipu(env, prompt, "cogview-3-flash", "1024x1024");
+  }
   if (!bytes) {
     return Response.json(
       { error: "生图服务暂不可用，请稍后重试" },
       { status: 502 }
     );
   }
+  console.log("portrait provider:", provider);
   const key = `portraits/${id}-${crypto.randomUUID()}.png`;
   try {
     // 用 Blob 传参：本地 dev 的 R2 代理对 ArrayBuffer 大参数会断言失败，Blob 走请求体直传
@@ -161,7 +169,7 @@ export async function POST(request: Request, { params }: Params) {
     await env.BUCKET.delete(oldKey).catch(() => {});
   }
 
-  return Response.json({ portrait_key: key });
+  return Response.json({ portrait_key: key, provider });
 }
 
 /** 读取立绘：从 R2 回源 */

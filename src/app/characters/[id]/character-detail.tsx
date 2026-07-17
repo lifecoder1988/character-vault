@@ -96,7 +96,10 @@ export default function CharacterDetail() {
         const data = (await res.json()) as { error?: string };
         throw new Error(data.error || "生成失败");
       }
-      toast.success("立绘生成完成！");
+      const data = (await res.json()) as { provider?: string };
+      toast.success(
+        data.provider ? `立绘生成完成（${data.provider}）` : "立绘生成完成！"
+      );
       await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "生成失败");
